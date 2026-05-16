@@ -27,7 +27,7 @@ describe("pi-simplify extension", () => {
     );
   });
 
-  it("does not register any event handlers", () => {
+  it("registers auto-simplify event handlers", () => {
     const pi = {
       registerCommand: vi.fn(),
       on: vi.fn(),
@@ -35,6 +35,8 @@ describe("pi-simplify extension", () => {
 
     registerExtension(pi);
 
-    expect(pi.on).not.toHaveBeenCalled();
+    expect(pi.on).toHaveBeenCalledWith("before_agent_start", expect.any(Function));
+    expect(pi.on).toHaveBeenCalledWith("tool_execution_end", expect.any(Function));
+    expect(pi.on).toHaveBeenCalledWith("agent_end", expect.any(Function));
   });
 });

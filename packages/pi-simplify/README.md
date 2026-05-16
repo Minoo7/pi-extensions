@@ -55,6 +55,22 @@ Add `--project` to save the preference in `.pi/settings.json` instead of your gl
 /simplify-settings anthropic --project
 ```
 
+### Auto-run after code edits
+
+Auto-run is off by default. Enable it to automatically queue a simplification pass after an agent turn that successfully edits code files:
+
+```
+/simplify-settings auto on
+```
+
+Disable it with:
+
+```
+/simplify-settings auto off
+```
+
+Auto-run only fires when `write` or `edit` modifies recognized code files. It skips ordinary chat turns, docs/lockfiles, explicit `/simplify` runs, and its own simplification pass to avoid loops.
+
 For one-off runs without changing settings:
 
 ```
@@ -74,7 +90,7 @@ When invoked, `/simplify` detects changed files (via `git diff`) and instructs t
 
 The agent reads each file, applies improvements one at a time, runs tests to verify nothing breaks, and summarizes the changes.
 
-The prompt preference is stored under `piSimplify.prompt` as either `"built-in"` or `"anthropic"` in Pi settings JSON. Project settings override global settings.
+The prompt preference is stored under `piSimplify.prompt` as either `"built-in"` or `"anthropic"` in Pi settings JSON. Auto-run is stored under `piSimplify.autoRun`. Project settings override global settings.
 
 ## License
 
