@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import registerExtension from "./index.js";
 
 describe("pi-simplify extension", () => {
-  it("registers the simplify command", () => {
+  it("registers the simplify commands", () => {
     const pi = {
       registerCommand: vi.fn(),
       on: vi.fn(),
@@ -10,9 +10,16 @@ describe("pi-simplify extension", () => {
 
     registerExtension(pi);
 
-    expect(pi.registerCommand).toHaveBeenCalledOnce();
+    expect(pi.registerCommand).toHaveBeenCalledTimes(2);
     expect(pi.registerCommand).toHaveBeenCalledWith(
       "simplify",
+      expect.objectContaining({
+        description: expect.any(String),
+        handler: expect.any(Function),
+      }),
+    );
+    expect(pi.registerCommand).toHaveBeenCalledWith(
+      "simplify-settings",
       expect.objectContaining({
         description: expect.any(String),
         handler: expect.any(Function),

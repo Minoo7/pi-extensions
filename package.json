@@ -9,6 +9,11 @@
   "engines": {
     "node": ">=18"
   },
+  "pi": {
+    "extensions": [
+      "packages/pi-simplify/src/index.ts"
+    ]
+  },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm test --workspaces --if-present",

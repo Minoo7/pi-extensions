@@ -56,4 +56,12 @@ describe("buildSimplifyPrompt", () => {
 
     expect(prompt).toMatch(/only.*review|do not.*outside/i);
   });
+
+  it("can use the Anthropic code-simplifier prompt", () => {
+    const prompt = buildSimplifyPrompt(files, "anthropic");
+
+    expect(prompt).toContain("expert code simplification specialist");
+    expect(prompt).toContain("src/foo.ts");
+    expect(prompt).toMatch(/Do NOT.*outside/i);
+  });
 });
