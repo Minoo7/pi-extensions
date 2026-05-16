@@ -2,6 +2,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
+import { createAutoSimplifyHooks } from "./auto-simplify.js";
 import {
   handleSimplifyCommand,
   handleSimplifySettingsCommand,
@@ -10,6 +11,8 @@ import {
 } from "./simplify-command.js";
 
 export default function (pi: ExtensionAPI): void {
+  createAutoSimplifyHooks(pi);
+
   pi.registerCommand(COMMAND_NAME, {
     description:
       "Review recently changed files for clarity, consistency, and maintainability improvements",

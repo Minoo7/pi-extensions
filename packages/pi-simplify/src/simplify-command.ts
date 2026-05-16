@@ -6,7 +6,9 @@ import { getChangedFiles } from "./git-diff.js";
 import { buildSimplifyPrompt } from "./prompt-builder.js";
 import {
   DEFAULT_PROMPT_MODE,
+  readSimplifySettings,
   readSimplifyPromptMode,
+  writeAutoRun,
   writeSimplifyPromptMode,
 } from "./settings.js";
 import type { SimplifyOptions, SimplifyPromptMode } from "./types.js";
@@ -16,6 +18,12 @@ export const SETTINGS_COMMAND_NAME = "simplify-settings";
 
 function parsePromptMode(value: string | undefined): SimplifyPromptMode | undefined {
   if (value === "built-in" || value === "anthropic") return value;
+  return undefined;
+}
+
+function parseBoolean(value: string | undefined): boolean | undefined {
+  if (value === "on" || value === "true" || value === "enabled") return true;
+  if (value === "off" || value === "false" || value === "disabled") return false;
   return undefined;
 }
 
@@ -77,11 +85,31 @@ export async function handleSimplifySettingsCommand(
     .map(parsePromptMode)
     .find((mode): mode is SimplifyPromptMode => mode !== undefined);
 
-  const currentMode = await readSimplifyPromptMode(ctx.cwd);
+  const autoRunIndex = tokens.findIndex((token) => token === "auto" || token === "--auto");
+  const explicitAutoRun = tokens
+    .map((token) => token.startsWith("--auto=") ? token.slice("--auto=".length) : token)
+    .map(parseBoolean)
+    .find((value): value is boolean => value !== undefined)
+    ?? (autoRunIndex === -1 ? undefined : parseBoolean(tokens[autoRunIndex + 1]));
+
+  if (explicitAutoRun !== undefined) {
+    await writeAutoRun(ctx.cwd, explicitAutoRun, scope);
+    ctx.ui.notify(`pi-simplify auto-run ${explicitAutoRun ? "enabled" : "disabled"} (${scope})`, "info");
+    return;
+  }
+
+  const currentSettings = await readSimplifySettings(ctx.cwd);
   const selectedMode = explicitMode ?? await ctx.ui.select(
-    `Simplify prompt (currently ${currentMode || DEFAULT_PROMPT_MODE})`,
-    ["built-in", "anthropic"],
+    `Simplify prompt: ${currentSettings.prompt || DEFAULT_PROMPT_MODE}; auto-run: ${currentSettings.autoRun ? "on" : "off"}`,
+    ["built-in", "anthropic", "auto on", "auto off"],
   );
+
+  const autoRun = selectedMode?.startsWith("auto ") ? parseBoolean(selectedMode.slice("auto ".length)) : undefined;
+  if (autoRun !== undefined) {
+    await writeAutoRun(ctx.cwd, autoRun, scope);
+    ctx.ui.notify(`pi-simplify auto-run ${autoRun ? "enabled" : "disabled"} (${scope})`, "info");
+    return;
+  }
 
   const promptMode = parsePromptMode(selectedMode);
   if (!promptMode) return;
