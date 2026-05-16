@@ -47,6 +47,21 @@ describe("parseArgs", () => {
       staged: false,
     });
   });
+
+  it("parses prompt override flags", () => {
+    expect(parseArgs("--anthropic")).toEqual({
+      files: [],
+      ref: "HEAD",
+      staged: false,
+      promptMode: "anthropic",
+    });
+    expect(parseArgs("--prompt=built-in")).toEqual({
+      files: [],
+      ref: "HEAD",
+      staged: false,
+      promptMode: "built-in",
+    });
+  });
 });
 
 describe("handleSimplifyCommand", () => {
