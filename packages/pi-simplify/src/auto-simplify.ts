@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildSimplifyPrompt } from "./prompt-builder.js";
 import { readSimplifySettings } from "./settings.js";
-import type { ChangedFile } from "./types.js";
+import type { ChangedFile, SimplifyPromptMode } from "./types.js";
 
 const DEFAULT_COOLDOWN_MS = 30_000;
 const AUTO_SIMPLIFY_MARKER = "<!-- pi-simplify:auto -->";
@@ -43,6 +43,13 @@ const EXCLUDED_BASENAMES = new Set([
   "bun.lockb",
 ]);
 
+const WRITE_TOOL_STATUS = new Map<string, ChangedFile["status"]>([
+  ["write", "added"],
+  ["Write", "added"],
+  ["edit", "modified"],
+  ["Edit", "modified"],
+]);
+
 interface ToolExecutionEndEventLike {
   readonly toolName?: string;
   readonly args?: unknown;
@@ -54,21 +61,21 @@ interface BeforeAgentStartEventLike {
   readonly prompt?: string;
 }
 
-function getExtension(path: string): string {
-  const lastSlash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  const basename = path.slice(lastSlash + 1);
-  const lastDot = basename.lastIndexOf(".");
-  return lastDot === -1 ? "" : basename.slice(lastDot).toLowerCase();
-}
-
 function getBasename(path: string): string {
   const lastSlash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return path.slice(lastSlash + 1);
 }
 
+function getExtension(path: string): string {
+  const basename = getBasename(path);
+  const lastDot = basename.lastIndexOf(".");
+  return lastDot === -1 ? "" : basename.slice(lastDot).toLowerCase();
+}
+
 export function isCodePath(path: string): boolean {
-  if (!path || EXCLUDED_BASENAMES.has(getBasename(path))) return false;
-  return CODE_EXTENSIONS.has(getExtension(path));
+  return Boolean(path)
+    && !EXCLUDED_BASENAMES.has(getBasename(path))
+    && CODE_EXTENSIONS.has(getExtension(path));
 }
 
 function extractPath(value: unknown): string | undefined {
@@ -86,13 +93,26 @@ function extractEditedPath(event: ToolExecutionEndEventLike): string | undefined
   return extractPath(event.args) ?? extractPath(event.result);
 }
 
-function isWriteTool(toolName: string | undefined): boolean {
-  return toolName === "write" || toolName === "edit" || toolName === "Write" || toolName === "Edit";
+function getWriteToolStatus(toolName: string | undefined): ChangedFile["status"] | undefined {
+  return toolName ? WRITE_TOOL_STATUS.get(toolName) : undefined;
 }
 
 function isSimplifyPrompt(prompt: string): boolean {
-  const trimmed = prompt.trim().toLowerCase();
-  return trimmed.startsWith("/simplify") || trimmed.includes(AUTO_SIMPLIFY_MARKER);
+  const normalized = prompt.trim().toLowerCase();
+  return normalized.startsWith("/simplify") || normalized.includes(AUTO_SIMPLIFY_MARKER);
+}
+
+function buildAutoSimplifyPrompt(
+  files: readonly ChangedFile[],
+  promptMode: SimplifyPromptMode,
+): string {
+  return [
+    AUTO_SIMPLIFY_MARKER,
+    "",
+    "Auto-simplify the code files edited in the previous turn.",
+    "",
+    buildSimplifyPrompt(files, promptMode),
+  ].join("\n");
 }
 
 export function createAutoSimplifyHooks(pi: ExtensionAPI): void {
@@ -111,12 +131,13 @@ export function createAutoSimplifyHooks(pi: ExtensionAPI): void {
 
   pi.on("tool_execution_end", (event) => {
     const toolEvent = event as ToolExecutionEndEventLike;
-    if (toolEvent.isError || !isWriteTool(toolEvent.toolName)) return;
+    const status = getWriteToolStatus(toolEvent.toolName);
+    if (toolEvent.isError || !status) return;
 
     const path = extractEditedPath(toolEvent);
     if (!path || !isCodePath(path)) return;
 
-    editedCodeFiles.set(path, { path, status: toolEvent.toolName?.toLowerCase() === "write" ? "added" : "modified" });
+    editedCodeFiles.set(path, { path, status });
   });
 
   pi.on("agent_end", async (_event, ctx: ExtensionContext) => {
@@ -126,23 +147,19 @@ export function createAutoSimplifyHooks(pi: ExtensionAPI): void {
       return;
     }
 
-    const settings = await readSimplifySettings(ctx.cwd);
-    if (!settings.autoRun) {
-      editedCodeFiles.clear();
-      return;
-    }
-
     const files = [...editedCodeFiles.values()];
     editedCodeFiles.clear();
-    if (files.length === 0) return;
-    if (isSimplifyPrompt(currentPrompt)) return;
+    if (files.length === 0 || isSimplifyPrompt(currentPrompt)) return;
+
+    const settings = await readSimplifySettings(ctx.cwd);
+    if (!settings.autoRun) return;
 
     const now = Date.now();
     const cooldownMs = settings.autoRunCooldownMs ?? DEFAULT_COOLDOWN_MS;
     if (now - lastAutoRunAt < cooldownMs) return;
 
     lastAutoRunAt = now;
-    const prompt = `${AUTO_SIMPLIFY_MARKER}\n\nAuto-simplify the code files edited in the previous turn.\n\n${buildSimplifyPrompt(files, settings.prompt)}`;
+    const prompt = buildAutoSimplifyPrompt(files, settings.prompt);
     pendingAutoPrompt = prompt;
     ctx.ui.notify(`Auto-simplifying ${files.length} edited code file(s)…`, "info");
     pi.sendUserMessage(prompt, { deliverAs: "followUp" });

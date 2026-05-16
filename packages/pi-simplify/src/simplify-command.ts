@@ -27,6 +27,24 @@ function parseBoolean(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
+function findPromptMode(tokens: readonly string[]): SimplifyPromptMode | undefined {
+  return tokens
+    .map((token) => token.startsWith("--prompt=") ? token.slice("--prompt=".length) : token)
+    .map(parsePromptMode)
+    .find((mode): mode is SimplifyPromptMode => mode !== undefined);
+}
+
+function findAutoRunValue(tokens: readonly string[]): boolean | undefined {
+  const fromFlag = tokens
+    .filter((token) => token.startsWith("--auto="))
+    .map((token) => parseBoolean(token.slice("--auto=".length)))
+    .find((value): value is boolean => value !== undefined);
+  if (fromFlag !== undefined) return fromFlag;
+
+  const autoRunIndex = tokens.findIndex((token) => token === "auto" || token === "--auto");
+  return autoRunIndex === -1 ? undefined : parseBoolean(tokens[autoRunIndex + 1]);
+}
+
 export function parseArgs(args: string): SimplifyOptions {
   const tokens = args.trim().split(/\s+/).filter(Boolean);
   const files: string[] = [];
@@ -80,34 +98,33 @@ export async function handleSimplifySettingsCommand(
 ): Promise<void> {
   const tokens = args.trim().split(/\s+/).filter(Boolean);
   const scope = tokens.includes("--project") ? "project" : "global";
-  const explicitMode = tokens
-    .map((token) => token.startsWith("--prompt=") ? token.slice("--prompt=".length) : token)
-    .map(parsePromptMode)
-    .find((mode): mode is SimplifyPromptMode => mode !== undefined);
-
-  const autoRunIndex = tokens.findIndex((token) => token === "auto" || token === "--auto");
-  const explicitAutoRun = tokens
-    .map((token) => token.startsWith("--auto=") ? token.slice("--auto=".length) : token)
-    .map(parseBoolean)
-    .find((value): value is boolean => value !== undefined)
-    ?? (autoRunIndex === -1 ? undefined : parseBoolean(tokens[autoRunIndex + 1]));
+  const explicitAutoRun = findAutoRunValue(tokens);
 
   if (explicitAutoRun !== undefined) {
     await writeAutoRun(ctx.cwd, explicitAutoRun, scope);
-    ctx.ui.notify(`pi-simplify auto-run ${explicitAutoRun ? "enabled" : "disabled"} (${scope})`, "info");
+    ctx.ui.notify(
+      `pi-simplify auto-run ${explicitAutoRun ? "enabled" : "disabled"} (${scope})`,
+      "info",
+    );
     return;
   }
 
+  const explicitMode = findPromptMode(tokens);
   const currentSettings = await readSimplifySettings(ctx.cwd);
   const selectedMode = explicitMode ?? await ctx.ui.select(
     `Simplify prompt: ${currentSettings.prompt || DEFAULT_PROMPT_MODE}; auto-run: ${currentSettings.autoRun ? "on" : "off"}`,
     ["built-in", "anthropic", "auto on", "auto off"],
   );
 
-  const autoRun = selectedMode?.startsWith("auto ") ? parseBoolean(selectedMode.slice("auto ".length)) : undefined;
-  if (autoRun !== undefined) {
-    await writeAutoRun(ctx.cwd, autoRun, scope);
-    ctx.ui.notify(`pi-simplify auto-run ${autoRun ? "enabled" : "disabled"} (${scope})`, "info");
+  const selectedAutoRun = selectedMode?.startsWith("auto ")
+    ? parseBoolean(selectedMode.slice("auto ".length))
+    : undefined;
+  if (selectedAutoRun !== undefined) {
+    await writeAutoRun(ctx.cwd, selectedAutoRun, scope);
+    ctx.ui.notify(
+      `pi-simplify auto-run ${selectedAutoRun ? "enabled" : "disabled"} (${scope})`,
+      "info",
+    );
     return;
   }
 
