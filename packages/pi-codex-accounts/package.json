@@ -1,0 +1,79 @@
+{
+  "name": "pi-codex-accounts",
+  "version": "0.1.0",
+  "description": "A Pi/Oh My Pi extension for switching between multiple ChatGPT Codex OAuth accounts.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Vincent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minoo7/pi-extensions.git",
+    "directory": "packages/pi-codex-accounts"
+  },
+  "homepage": "https://github.com/Minoo7/pi-extensions/tree/main/packages/pi-codex-accounts#readme",
+  "bugs": {
+    "url": "https://github.com/Minoo7/pi-extensions/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "oh-my-pi",
+    "codex",
+    "chatgpt",
+    "oauth",
+    "ai-agent",
+    "coding-assistant"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  },
+  "omp": {
+    "name": "pi-codex-accounts",
+    "description": "Switch/add ChatGPT Codex OAuth accounts using device-code auth.",
+    "hooks": "./dist/index.js"
+  },
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "check": "vitest run && eslint src/ && tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run check",
+    "prepack": "test -d dist || { echo 'Error: dist/ missing. Run npm run build first.' && exit 1; }"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "^0.74.0",
+    "@earendil-works/pi-coding-agent": "^0.74.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^10.3.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}

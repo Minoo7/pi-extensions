@@ -16,6 +16,7 @@
     "packages/pi-red-green": {},
     "packages/pi-compass": {},
     "packages/pi-simplify": {},
+    "packages/pi-codex-accounts": {},
     "packages/pi-code-review": {},
     "packages/pi-blueprint": {}
   }
